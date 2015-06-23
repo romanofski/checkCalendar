@@ -1,6 +1,7 @@
 #!/usr/bin/runhaskell
 {-# LANGUAGE OverloadedStrings, ExtendedDefaultRules #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
+{-
 -- | Checks google calendar and modifies it's printed event in order to
 -- color code the upcoming event as a XMobar compatible reminder.
 --
@@ -16,17 +17,10 @@
 --  * I always need to compare if the time is near the current event,
 --  which is "hard"
 --
--- Program execution:
---
---  * Execute gcalcli with default parameters
---  * parse the output
---  * pick the first, most recent event in the future
---      * if there are no events bail out
---  * parse the string into a data type
---  * check if the upcoming event is in the reminder window
---      * when true, color code the event red
---      * otherwise print the event with time and escription
---
+-}
+
+module Main where
+
 import System.Process (readProcess)
 import Data.Time.Format (parseTime, formatTime)
 import Data.Time.Clock (NominalDiffTime, UTCTime(..), diffUTCTime, secondsToDiffTime)
@@ -35,15 +29,22 @@ import Data.Time.Calendar (Day(..))
 import Data.Time.LocalTime (LocalTime, TimeZone, localTimeToUTC, getCurrentTimeZone, utcToLocalTime)
 import System.Locale (defaultTimeLocale)
 
+-- $setup
+-- >>> tz <- getCurrentTimeZone
+-- >>> let now = UTCTime (ModifiedJulianDay 0) (secondsToDiffTime 0)
+-- >>> let later = UTCTime (ModifiedJulianDay 0) (secondsToDiffTime 500)
+-- >>> let evTime = UTCTime (ModifiedJulianDay 0) (secondsToDiffTime 200)
+
 
 -- | Google Calendar Event
 --
 data GCalEvent = GCalEvent UTCTime String
+    deriving Show
 
 gcalccliCMD :: FilePath
 gcalccliCMD = "gcalcli"
 
-gcalcliParams :: UTCTime -> [String]
+gcalcliParams :: LocalTime -> [String]
 gcalcliParams now = [ "--nocolor"
                     , "--nostarted"
                     , "--military"
@@ -74,11 +75,8 @@ remindInterval = diffUTCTime (UTCTime day (time + 300)) (UTCTime day 0)
 -- | eventIsClose
 -- Returns True if the event is about to begin
 --
--- >>> let now = UTCTime (ModifiedJulianDay 0) (secondsToDiffTime 0)
--- >>> let evTime = UTCTime (ModifiedJulianDay 0) (secondsToDiffTime 200)
 -- >>> eventIsClose now (GCalEvent evTime "foo")
 -- True
--- >>> let later = UTCTime (ModifiedJulianDay 0) (secondsToDiffTime 500)
 -- >>> eventIsClose now (GCalEvent later "foo")
 -- False
 --
@@ -92,12 +90,9 @@ eventIsClose now (GCalEvent evTime _ ) = diffUTCTime evTime now <= remindInterva
 -- need to convert it back to local time in order to make sense of it as
 -- a human.
 --
--- >>> let now = UTCTime (ModifiedJulianDay 0) (secondsToDiffTime 0)
--- >>> let evTime = UTCTime (ModifiedJulianDay 0) (secondsToDiffTime 20)
--- >>> formatNewEvent now (GCalEvent evTime "do something")
--- "<fc=#FF0000>00:00 do something</fc>"
--- >>> let later = UTCTime (ModifiedJulianDay 0) (secondsToDiffTime 500)
--- >>> formatNewEvent now (GCalEvent later "foo")
+-- >>> formatNewEvent tz now (GCalEvent evTime "do something")
+-- "<fc=#FF0000> ... do something</fc>"
+-- >>> formatNewEvent tz now (GCalEvent later "foo")
 -- "00:08 foo"
 --
 formatNewEvent :: TimeZone -> UTCTime -> GCalEvent -> String
@@ -114,9 +109,11 @@ formatNewEvent tz now gEvent@(GCalEvent t desc) =
 fixDateInOutput :: UTCTime -> String -> String
 fixDateInOutput now xs = thisYear now ++ xs
 
--- | executes gcalcli and reads output
-getCLIOutput :: UTCTime -> IO String
-getCLIOutput now = readProcess gcalccliCMD (gcalcliParams now) []
+-- | Executes gcalcli and reads output
+--
+getCLIOutput :: TimeZone -> UTCTime -> IO String
+getCLIOutput tz t = readProcess gcalccliCMD (gcalcliParams nowLocalTime) []
+    where nowLocalTime = utcToLocalTime tz t
 
 -- | remove trailing whitespace, pick the first event which should be
 -- the next event and add the year.
@@ -136,16 +133,16 @@ cleanupOutput outp = filter (not . null) (lines outp)
 
 -- | Turn the first event string into a GCalEvent
 --
--- Note: The events time returned by gcalcli is in localtime. We convert
+-- Note: The events time returned by gcalcli are in localtime. We convert
 -- it using our Timezone to UTC.
 --
 -- >>> import Data.Time.LocalTime (utc)
 -- >>> let xs = "2015Mon Jun 22 11:45 rpmdiff daily scrum"
--- >>> parseCLIOutput utc xs
--- Just 11:45 rpmdiff daily scrum
--- >>> parseCLIOutput utc "No meetings"
+-- >>> parseCLIOutput tz xs
+-- Just (GCalEvent 2015-06-22 01:45:00 UTC "rpmdiff daily scrum")
+-- >>> parseCLIOutput tz "No meetings"
 -- Nothing
--- >>> parseCLIOutput utc "No Events Found ..."
+-- >>> parseCLIOutput tz "No Events Found ..."
 -- Nothing
 --
 parseCLIOutput :: TimeZone -> String -> Maybe GCalEvent
@@ -175,7 +172,7 @@ main :: IO ()
 main = do
     now <- getCurrentTime
     tz <- getCurrentTimeZone
-    outp <- getCLIOutput now
+    outp <- getCLIOutput tz now
     case parseCLIOutput tz (getFirstEventFromOutput now outp) of
         Just gcalEvent -> putStrLn $ formatNewEvent tz now gcalEvent
         Nothing -> putStrLn "--"
