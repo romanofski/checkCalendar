@@ -28,6 +28,7 @@ import Data.Time (getCurrentTime)
 import Data.Time.Calendar (Day(..))
 import Data.Time.LocalTime (LocalTime, TimeZone, localTimeToUTC, getCurrentTimeZone, utcToLocalTime)
 import System.Locale (defaultTimeLocale)
+import System.Environment (getArgs)
 
 -- $setup
 -- >>> tz <- getCurrentTimeZone
@@ -44,18 +45,15 @@ data GCalEvent = GCalEvent UTCTime String
 gcalccliCMD :: FilePath
 gcalccliCMD = "gcalcli"
 
-gcalcliParams :: LocalTime -> [String]
-gcalcliParams now = [ "--nocolor"
-                    , "--nostarted"
-                    , "--military"
-                    , "--calendar=rjoost@redhat.com"
-                    , "agenda"
-                    , fromDateTime
-                    , toDateTime
-                    ]
-                        where
-                            fromDateTime = formatTime defaultTimeLocale "%F %T" now
-                            toDateTime = formatTime defaultTimeLocale "%F 22:00:00" now
+gcalDefaultParams :: LocalTime -> [String]
+gcalDefaultParams now =
+    [ "agenda"
+    , fromDateTime
+    , toDateTime
+    ]
+        where
+            fromDateTime = formatTime defaultTimeLocale "%F %T" now
+            toDateTime = formatTime defaultTimeLocale "%F 22:00:00" now
 
 thisYear :: UTCTime -> String
 thisYear = formatTime defaultTimeLocale "%Y"
@@ -111,9 +109,8 @@ fixDateInOutput now xs = thisYear now ++ xs
 
 -- | Executes gcalcli and reads output
 --
-getCLIOutput :: TimeZone -> UTCTime -> IO String
-getCLIOutput tz t = readProcess gcalccliCMD (gcalcliParams nowLocalTime) []
-    where nowLocalTime = utcToLocalTime tz t
+getCLIOutput :: FilePath -> [String] -> IO String
+getCLIOutput cmd args = readProcess cmd args []
 
 -- | remove trailing whitespace, pick the first event which should be
 -- the next event and add the year.
@@ -170,9 +167,10 @@ splitEventDescFromTime xs = (unwords $ fst tuple, unwords $ snd tuple)
 
 main :: IO ()
 main = do
+    args <- getArgs
     now <- getCurrentTime
     tz <- getCurrentTimeZone
-    outp <- getCLIOutput tz now
+    outp <- getCLIOutput gcalccliCMD $ args ++ gcalDefaultParams (utcToLocalTime tz now)
     case parseCLIOutput tz (getFirstEventFromOutput now outp) of
         Just gcalEvent -> putStrLn $ formatNewEvent tz now gcalEvent
         Nothing -> putStrLn "--"
