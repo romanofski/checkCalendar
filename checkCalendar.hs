@@ -12,6 +12,7 @@ import Data.Time.Calendar (Day(..))
 import Data.Time.LocalTime (LocalTime, TimeZone, localTimeToUTC, getCurrentTimeZone, utcToLocalTime)
 import System.Locale (defaultTimeLocale)
 import System.Environment (getArgs)
+import Data.Bifunctor (bimap)
 
 -- $setup
 -- >>> tz <- getCurrentTimeZone
@@ -145,7 +146,7 @@ parseCLIOutput tz xs = do
 -- ("Foo bar","")
 --
 splitEventDescFromTime :: String -> (String, String)
-splitEventDescFromTime xs = (unwords $ fst tuple, unwords $ snd tuple)
+splitEventDescFromTime xs = bimap unwords unwords tuple
     where tuple = splitAt 4 $ words xs
 
 main :: IO ()
