@@ -1,23 +1,6 @@
 #!/usr/bin/runhaskell
 {-# LANGUAGE OverloadedStrings, ExtendedDefaultRules #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
-{-
--- | Checks google calendar and modifies it's printed event in order to
--- color code the upcoming event as a XMobar compatible reminder.
---
--- Prerequisites:
---
---  * https://github.com/insanum/gcalcli installed and in your
---  $PATH
---
--- Motivation:
---
---  * default output has too much information (e.g. date) and takes up
---  to much space in XMobar
---  * I always need to compare if the time is near the current event,
---  which is "hard"
---
--}
 
 module Main where
 
