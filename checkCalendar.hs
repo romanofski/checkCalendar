@@ -6,9 +6,8 @@ module Main where
 
 import System.Process (readProcess)
 import Data.Time.Format (parseTime, formatTime)
-import Data.Time.Clock (NominalDiffTime, UTCTime(..), diffUTCTime, secondsToDiffTime)
+import Data.Time.Clock (NominalDiffTime, UTCTime(..), diffUTCTime)
 import Data.Time (getCurrentTime)
-import Data.Time.Calendar (Day(..))
 import Data.Time.LocalTime (LocalTime, TimeZone, localTimeToUTC, getCurrentTimeZone, utcToLocalTime)
 import System.Locale (defaultTimeLocale)
 import System.Environment (getArgs)
@@ -44,15 +43,8 @@ thisYear = formatTime defaultTimeLocale "%Y"
 
 -- | Interval when we want to be reminded. Defaults to 5min
 --
--- TODO: Is there a better way to define this instead of a calculation?
---
--- >>> remindInterval
--- 300s
---
 remindInterval :: NominalDiffTime
-remindInterval = diffUTCTime (UTCTime day (time + 300)) (UTCTime day 0)
-    where day = ModifiedJulianDay 0
-          time = secondsToDiffTime 0
+remindInterval = 300
 
 -- | eventIsClose
 -- Returns True if the event is about to begin
