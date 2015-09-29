@@ -12,6 +12,8 @@ import Data.Time.LocalTime (LocalTime, TimeZone, localTimeToUTC, getCurrentTimeZ
 import System.Locale (defaultTimeLocale)
 import System.Environment (getArgs)
 import Data.Bifunctor (bimap)
+import qualified Shelly as S
+import qualified Data.Text.Lazy as LT
 
 -- $setup
 -- >>> tz <- getCurrentTimeZone
@@ -25,7 +27,7 @@ import Data.Bifunctor (bimap)
 data GCalEvent = GCalEvent UTCTime String
     deriving Show
 
-gcalccliCMD :: FilePath
+gcalccliCMD :: S.FilePath
 gcalccliCMD = "gcalcli"
 
 gcalDefaultParams :: LocalTime -> [String]
@@ -85,8 +87,11 @@ fixDateInOutput now xs = thisYear now ++ xs
 
 -- | Executes gcalcli and reads output
 --
-getCLIOutput :: FilePath -> [String] -> IO String
-getCLIOutput cmd args = readProcess cmd args []
+getCLIOutput :: S.FilePath -> [String] -> S.Sh String
+getCLIOutput cmd a = S.shelly $ do
+   let args = LT.toStrict . LT.pack S.<$> a
+   output <- S.run cmd args
+   return $ LT.unpack (LT.fromStrict output)
 
 -- | remove trailing whitespace, pick the first event which should be
 -- the next event and add the year.
@@ -146,7 +151,8 @@ main = do
     args <- getArgs
     now <- getCurrentTime
     tz <- getCurrentTimeZone
-    outp <- getCLIOutput gcalccliCMD $ args ++ gcalDefaultParams (utcToLocalTime tz now)
+    outp <- S.shelly $ S.verbosely $
+      getCLIOutput gcalccliCMD $ args ++ gcalDefaultParams (utcToLocalTime tz now)
     case parseCLIOutput tz (getFirstEventFromOutput now outp) of
         Just gcalEvent -> putStrLn $ formatNewEvent tz now gcalEvent
         Nothing -> putStrLn "--"
