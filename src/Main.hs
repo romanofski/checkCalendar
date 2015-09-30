@@ -30,7 +30,8 @@ gcalccliCMD = "gcalcli"
 
 gcalDefaultParams :: LocalTime -> [String]
 gcalDefaultParams now =
-    [ "agenda"
+    [ "--military"
+    , "agenda"
     , fromDateTime
     , toDateTime
     ]
