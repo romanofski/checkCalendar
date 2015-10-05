@@ -21,3 +21,12 @@ executable checkCalendar
                      , old-locale
                      , bifunctors
   default-language:    Haskell2010
+
+test-suite doctests
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      tests
+  ghc-options:         -threaded
+  main-is:             doctests.hs
+  build-depends:       base >= 4.7
+                     , doctest >= 0.8
+  default-language:    Haskell2010

@@ -14,6 +14,8 @@ import System.Environment (getArgs)
 import Data.Bifunctor (bimap)
 
 -- $setup
+-- >>> import Data.Time.Clock (secondsToDiffTime)
+-- >>> import Data.Time.Calendar (Day(..))
 -- >>> tz <- getCurrentTimeZone
 -- >>> let now = UTCTime (ModifiedJulianDay 0) (secondsToDiffTime 0)
 -- >>> let later = UTCTime (ModifiedJulianDay 0) (secondsToDiffTime 500)
@@ -24,6 +26,9 @@ import Data.Bifunctor (bimap)
 --
 data GCalEvent = GCalEvent UTCTime String
     deriving Show
+
+data ParseError = ParseError String
+                deriving Show
 
 gcalccliCMD :: FilePath
 gcalccliCMD = "gcalcli"
@@ -65,10 +70,10 @@ eventIsClose now (GCalEvent evTime _ ) = diffUTCTime evTime now <= remindInterva
 -- need to convert it back to local time in order to make sense of it as
 -- a human.
 --
--- >>> formatNewEvent tz now (GCalEvent evTime "do something")
--- "<fc=#FF0000> ... do something</fc>"
--- >>> formatNewEvent tz now (GCalEvent later "foo")
--- "00:08 foo"
+-- >>> putStrLn $ formatNewEvent tz now (GCalEvent evTime "do something")
+-- <fc=#FF0000>... do something</fc>
+-- >>> putStrLn $ formatNewEvent tz now (GCalEvent later "foo")
+-- ... foo
 --
 formatNewEvent :: TimeZone -> UTCTime -> GCalEvent -> String
 formatNewEvent tz now gEvent@(GCalEvent t desc) =
@@ -113,20 +118,20 @@ cleanupOutput outp = filter (not . null) (lines outp)
 -- >>> import Data.Time.LocalTime (utc)
 -- >>> let xs = "2015Mon Jun 22 11:45 rpmdiff daily scrum"
 -- >>> parseCLIOutput tz xs
--- Just (GCalEvent 2015-06-22 01:45:00 UTC "rpmdiff daily scrum")
+-- Right (GCalEvent 2015-06-22 01:45:00 UTC "rpmdiff daily scrum")
 -- >>> parseCLIOutput tz "No meetings"
--- Nothing
--- >>> parseCLIOutput tz "No Events Found ..."
--- Nothing
+-- Left (ParseError "Invalid time: No meetings")
 --
-parseCLIOutput :: TimeZone -> String -> Maybe GCalEvent
+parseCLIOutput :: TimeZone -> String -> Either ParseError GCalEvent
 parseCLIOutput tz xs = do
-    time <- stringToTime (fst timeAndDesc)
+    time <- parseGcalcTime (fst timeAndDesc)
     return $ GCalEvent (localTimeToUTC tz time) (snd timeAndDesc)
-    where stringToTime :: String -> Maybe LocalTime
-          stringToTime = parseTime defaultTimeLocale "%Y%a %b %d %R"
+    where timeAndDesc = splitEventDescFromTime xs
 
-          timeAndDesc = splitEventDescFromTime xs
+parseGcalcTime :: String -> Either ParseError LocalTime
+parseGcalcTime str = case parseTime defaultTimeLocale "%Y%a %b %d %R" str of
+  Just t -> Right t
+  Nothing -> Left (ParseError $ "Invalid time: " ++ str)
 
 -- | splitEventDescFromTime
 -- The output we get is a combination of a formated date/time and the
@@ -149,5 +154,5 @@ main = do
     tz <- getCurrentTimeZone
     outp <- getCLIOutput gcalccliCMD $ args ++ gcalDefaultParams (utcToLocalTime tz now)
     case parseCLIOutput tz (getFirstEventFromOutput now outp) of
-        Just gcalEvent -> putStrLn $ formatNewEvent tz now gcalEvent
-        Nothing -> putStrLn "--"
+        Right gcalEvent -> putStrLn $ formatNewEvent tz now gcalEvent
+        Left (ParseError err) -> putStrLn err
