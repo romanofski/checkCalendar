@@ -5,7 +5,7 @@
 module Main where
 
 import System.Process (readProcess)
-import Data.Time.Format (parseTime, formatTime)
+import Data.Time.Format (parseTimeM, formatTime)
 import Data.Time.Clock (NominalDiffTime, UTCTime(..), diffUTCTime)
 import Data.Time (getCurrentTime, defaultTimeLocale)
 import Data.Time.LocalTime (LocalTime, TimeZone, localTimeToUTC, getCurrentTimeZone, utcToLocalTime)
@@ -128,7 +128,7 @@ parseCLIOutput tz xs = do
     where timeAndDesc = splitEventDescFromTime xs
 
 parseGcalcTime :: String -> Either ParseError LocalTime
-parseGcalcTime str = case parseTime defaultTimeLocale "%Y%a %b %d %R" str of
+parseGcalcTime str = case parseTimeM True defaultTimeLocale "%Y%a %b %d %R" str of
   Just t -> Right t
   Nothing -> Left (ParseError $ "Invalid time: " ++ str)
 
