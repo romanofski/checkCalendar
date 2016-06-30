@@ -7,9 +7,8 @@ module Main where
 import System.Process (readProcess)
 import Data.Time.Format (parseTime, formatTime)
 import Data.Time.Clock (NominalDiffTime, UTCTime(..), diffUTCTime)
-import Data.Time (getCurrentTime)
+import Data.Time (getCurrentTime, defaultTimeLocale)
 import Data.Time.LocalTime (LocalTime, TimeZone, localTimeToUTC, getCurrentTimeZone, utcToLocalTime)
-import System.Locale (defaultTimeLocale)
 import System.Environment (getArgs)
 import Data.Bifunctor (bimap)
 

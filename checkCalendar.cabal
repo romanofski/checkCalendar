@@ -18,7 +18,6 @@ executable checkCalendar
   build-depends:       base >=4.7
                      , time
                      , process
-                     , old-locale
                      , bifunctors
   default-language:    Haskell2010
 
